@@ -101,7 +101,33 @@ export default function ClarityApp() {
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
 
-  useEffect(() => { playWelcomeSound(); }, []);
+  useEffect(() => {
+    playWelcomeSound();
+    // Auto-login from saved session
+    try {
+      const saved = localStorage.getItem('clarity_session');
+      if (saved) {
+        const session = JSON.parse(saved);
+        if (session.userId && session.name && session.project && session.why) {
+          setUserId(session.userId);
+          setName(session.name);
+          setProject(session.project);
+          setWhy(session.why);
+          setPlan(session.plan || 'free');
+          setMessageCount(session.messageCount || 0);
+          // Load messages
+          dbQuery("GET", "messages", null, `?user_id=eq.${session.userId}&order=created_at.asc&limit=50`).then(msgs => {
+            if (msgs && msgs.length > 0) {
+              setMessages(msgs.map(m => ({ role: m.role, content: m.content })));
+            } else {
+              setMessages([{ role: "assistant", content: `Bon retour ${session.name} ! 💙 On continue sur "${session.project}" ?` }]);
+            }
+            setScreen("chat");
+          });
+        }
+      }
+    } catch(e) {}
+  }, []);
   useEffect(() => { bottomRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages, loading]);
 
   const startListening = () => {
@@ -161,7 +187,10 @@ export default function ClarityApp() {
     if (onboardingStep === 1) { newProject = currentInput.trim(); setProject(newProject); }
     if (onboardingStep === 2) {
       newWhy = currentInput.trim(); setWhy(newWhy);
-      if (userId) await dbQuery("PATCH", "users", { name: newName, project: newProject, why: newWhy }, `?id=eq.${userId}`);
+      if (userId) {
+        await dbQuery("PATCH", "users", { name: newName, project: newProject, why: newWhy }, `?id=eq.${userId}`);
+        try { localStorage.setItem('clarity_session', JSON.stringify({ userId, name: newName, project: newProject, why: newWhy, plan: 'free', messageCount: 0 })); } catch(e) {}
+      }
       setScreen("chat");
       setLoading(true);
       try {
@@ -388,6 +417,7 @@ export default function ClarityApp() {
             {10-messageCount} msg
           </div>
         )}
+        <button onClick={()=>{try{localStorage.removeItem('clarity_session');}catch(e){}setScreen("landing");setMessages([]);setName("");setProject("");setWhy("");setUserId(null);}} style={{background:"none",border:"none",color:"rgba(255,255,255,0.2)",fontSize:11,cursor:"pointer",padding:"4px 8px"}}>⎋</button>
       </div>
       <div style={{flex:1,overflowY:"auto",padding:"24px 16px",display:"flex",flexDirection:"column",gap:12}}>
         {messages.map((msg,i)=>(
