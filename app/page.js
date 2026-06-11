@@ -96,6 +96,7 @@ export default function ClarityApp() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [rememberMe, setRememberMe] = useState(false);
   const [listening, setListening] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
@@ -104,6 +105,15 @@ export default function ClarityApp() {
   useEffect(() => {
     playWelcomeSound();
     // Auto-login from saved session
+    try {
+      // Auto-fill remembered email
+      const rememberedEmail = document.cookie.split('; ').find(r => r.startsWith('clarity_email='));
+      if (rememberedEmail) {
+        const em = decodeURIComponent(rememberedEmail.split('=')[1]);
+        setEmail(em);
+        setRememberMe(true);
+      }
+    } catch(e) {}
     try {
       const cookieVal = document.cookie.split('; ').find(r => r.startsWith('clarity_session='));
       const saved = cookieVal ? decodeURIComponent(cookieVal.split('=').slice(1).join('=')) : null;
@@ -164,6 +174,12 @@ export default function ClarityApp() {
     const result = await dbQuery("GET", "users", null, `?email=eq.${encodeURIComponent(email)}&password=eq.${encodeURIComponent(password)}&select=id,name,project,why,message_count,plan`);
     if (result && result.length > 0) {
       const u = result[0];
+      // Save email if remember me
+      if (rememberMe) {
+        try { const d = new Date(); d.setFullYear(d.getFullYear()+1); document.cookie = `clarity_email=${encodeURIComponent(email)}; expires=${d.toUTCString()}; path=/`; } catch(e) {}
+      } else {
+        try { document.cookie = 'clarity_email=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/'; } catch(e) {}
+      }
       setUserId(u.id);
       setMessageCount(u.message_count || 0);
       setPlan(u.plan || "free");
@@ -342,6 +358,10 @@ export default function ClarityApp() {
         <input style={s.input} type="email" placeholder="Ton email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={handleKey}/>
         <input style={s.input} type="password" placeholder="Mot de passe (min 6 caractères)" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={handleKey}/>
         {authError && <div style={{color:"#f87171",fontSize:13,textAlign:"center"}}>{authError}</div>}
+        <div style={{display:"flex",alignItems:"center",gap:10,padding:"4px 0"}}>
+          <input type="checkbox" id="remember" checked={rememberMe} onChange={e=>setRememberMe(e.target.checked)} style={{width:18,height:18,accentColor:"#2D7DD2",cursor:"pointer"}}/>
+          <label htmlFor="remember" style={{fontSize:14,color:"rgba(255,255,255,0.5)",cursor:"pointer"}}>Se souvenir de mon email</label>
+        </div>
         <button style={{...s.btn,marginTop:8,maxWidth:"100%"}} onClick={screen==="signup"?handleSignup:handleLogin}>
           {screen==="signup"?"Créer mon compte →":"Se connecter →"}
         </button>
