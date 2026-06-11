@@ -74,6 +74,21 @@ QUAND IL DÉRIVE :
 LANGUE : Réponds toujours dans la langue de l'utilisateur.
 RÉPONSES : Courtes, 2-4 phrases max.`;
 
+async function speakText(text) {
+  try {
+    const res = await fetch("/api/speak", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text })
+    });
+    if (!res.ok) return;
+    const blob = await res.blob();
+    const url = URL.createObjectURL(blob);
+    const audio = new Audio(url);
+    await audio.play();
+  } catch(e) {}
+}
+
 export default function ClarityApp() {
   const [screen, setScreen] = useState("landing");
   const [email, setEmail] = useState("");
@@ -89,8 +104,11 @@ export default function ClarityApp() {
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
   const [authError, setAuthError] = useState("");
+  const [listening, setListening] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(true);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
+  const recognitionRef = useRef(null);
 
   useEffect(() => {
     playWelcomeSound();
@@ -99,6 +117,30 @@ export default function ClarityApp() {
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, loading]);
+
+  const startListening = () => {
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) { alert("Ton navigateur ne supporte pas la reconnaissance vocale. Essaie Chrome !"); return; }
+    const recognition = new SpeechRecognition();
+    recognition.lang = 'fr-FR';
+    recognition.continuous = false;
+    recognition.interimResults = false;
+    recognition.onstart = () => setListening(true);
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setInput(transcript);
+      setListening(false);
+    };
+    recognition.onerror = () => setListening(false);
+    recognition.onend = () => setListening(false);
+    recognition.start();
+    recognitionRef.current = recognition;
+  };
+
+  const stopListening = () => {
+    if (recognitionRef.current) recognitionRef.current.stop();
+    setListening(false);
+  };
 
   const onboardingQuestions = [
     { q: "C'est quoi ton prénom ?", hint: "Juste ton prénom 😊" },
@@ -134,8 +176,10 @@ export default function ClarityApp() {
           }),
         });
         const data = await res.json();
-        setMessages([{ role: "assistant", content: data.content }]);
+        const reply = data.content;
+        setMessages([{ role: "assistant", content: reply }]);
         setMessageCount(1);
+        if (voiceEnabled) speakText(reply);
       } catch {
         setMessages([{ role: "assistant", content: `Bienvenue ${name} ! Je suis là pour t'aider. 💙` }]);
       }
@@ -148,10 +192,7 @@ export default function ClarityApp() {
 
   const sendMessage = async () => {
     if (!input.trim() || loading) return;
-    if (plan === "free" && messageCount >= PLANS.free.messages) {
-      setScreen("upgrade");
-      return;
-    }
+    if (plan === "free" && messageCount >= PLANS.free.messages) { setScreen("upgrade"); return; }
     const userMsg = input.trim();
     setInput("");
     const newMessages = [...messages, { role: "user", content: userMsg }];
@@ -168,8 +209,10 @@ export default function ClarityApp() {
         }),
       });
       const data = await res.json();
-      setMessages([...newMessages, { role: "assistant", content: data.content }]);
+      const reply = data.content;
+      setMessages([...newMessages, { role: "assistant", content: reply }]);
       setMessageCount(c => c + 1);
+      if (voiceEnabled) speakText(reply);
     } catch {
       setMessages([...newMessages, { role: "assistant", content: "Petite erreur, réessaie ! 🔄" }]);
     }
@@ -193,13 +236,10 @@ export default function ClarityApp() {
     btnGhost: { background: "transparent", color: "rgba(255,255,255,0.4)", border: "none", padding: "14px", borderRadius: 100, fontSize: 14, cursor: "pointer", width: "100%", maxWidth: 300, display: "block", margin: "0 auto" },
     btnOutline: { background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)", border: "1px solid rgba(255,255,255,0.1)", padding: "14px", borderRadius: 100, fontSize: 15, cursor: "pointer", width: "100%" },
     input: { background: "#111827", border: "1px solid rgba(45,125,210,0.3)", borderRadius: 12, padding: "14px 16px", fontSize: 15, color: "white", fontFamily: "system-ui,sans-serif", outline: "none", width: "100%", boxSizing: "border-box" },
-    card: { background: "#111827", border: "1px solid rgba(255,255,255,0.07)", borderRadius: 20, padding: "24px" },
   };
 
-  // LANDING
   if (screen === "landing") return (
     <div style={{ ...s.wrap, overflowY: "auto" }}>
-      {/* HERO */}
       <div style={{ padding: "64px 28px 48px", textAlign: "center", position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", width: 500, height: 500, background: "radial-gradient(circle,rgba(45,125,210,0.1) 0%,transparent 65%)", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }} />
         <div style={{ marginBottom: 24, position: "relative" }}><ClarityLogo size={72} /></div>
@@ -209,13 +249,12 @@ export default function ClarityApp() {
         <div style={{ fontSize: 40, fontWeight: 900, letterSpacing: -2, marginBottom: 8, position: "relative" }}>Clarity<span style={{ color: "#2D7DD2" }}>.</span></div>
         <div style={{ fontSize: 11, color: "#38BDF8", letterSpacing: 3, marginBottom: 36, position: "relative" }}>L'IA POUR LES ENTREPRENEURS TDAH</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 12, position: "relative" }}>
-          <button style={s.btn} onClick={() => setScreen("signup")}>Oui, c'est moi — essayer →</button>
+          <button style={s.btn} onClick={() => { playWelcomeSound(); setScreen("signup"); }}>Oui, c'est moi — essayer →</button>
           <button style={s.btnGhost} onClick={() => setScreen("login")}>J'ai déjà un compte</button>
         </div>
         <p style={{ fontSize: 11, color: "rgba(255,255,255,0.2)", marginTop: 14, position: "relative" }}>Gratuit · 10 messages · Aucune carte requise</p>
       </div>
 
-      {/* STATS */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", borderTop: "1px solid rgba(255,255,255,0.05)", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
         {[["404M","adultes TDAH\ndans le monde"],["29%","des entrepreneurs\nont le TDAH"],["0","outil fait\npour eux — jusqu'ici"]].map(([n,l],i) => (
           <div key={i} style={{ padding: "24px 12px", textAlign: "center", borderRight: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
@@ -225,16 +264,10 @@ export default function ClarityApp() {
         ))}
       </div>
 
-      {/* RECONNAISSANCE */}
       <div style={{ padding: "48px 28px", background: "#0a0f1a" }}>
         <div style={{ fontSize: 13, fontWeight: 600, color: "rgba(255,255,255,0.3)", letterSpacing: "1.5px", textTransform: "uppercase", marginBottom: 20, textAlign: "center" }}>Ça te parle ?</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-          {[
-            ["🌀", "Tu changes d'idée avant même de finir"],
-            ["🔥", "T'as commencé 10 projets, fini zéro"],
-            ["😮‍💨", "Tu sais que t'as du potentiel mais tu sais pas quoi en faire"],
-            ["💭", "Les autres outils te donnent encore plus à gérer"],
-          ].map(([emoji, text], i) => (
+          {[["🌀","Tu changes d'idée avant même de finir"],["🔥","T'as commencé 10 projets, fini zéro"],["😮‍💨","Tu sais que t'as du potentiel mais tu sais pas quoi en faire"],["💭","Les autres outils te donnent encore plus à gérer"]].map(([emoji,text],i) => (
             <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 12, padding: "14px 16px" }}>
               <span style={{ fontSize: 20 }}>{emoji}</span>
               <span style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", flex: 1 }}>{text}</span>
@@ -244,178 +277,175 @@ export default function ClarityApp() {
         </div>
       </div>
 
-      {/* FEATURES */}
       <div style={{ padding: "48px 28px", background: "#060810" }}>
         <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: -1, marginBottom: 8 }}>Comment Clarity t'aide.</div>
         <p style={{ fontSize: 15, color: "rgba(255,255,255,0.4)", marginBottom: 32, fontWeight: 300 }}>Pas un outil de productivité. Un compagnon.</p>
         <div style={{ display: "flex", flexDirection: "column", gap: 0 }}>
           {[
-            { num: "01", title: "L'Ancre", tag: "CORE", desc: "Clarity apprend ton pourquoi profond. Quand tu veux tout abandonner, il te rappelle pourquoi t'as commencé.", demo: "Hey, tu te souviens pourquoi t'as commencé ? Tu voulais être libre. Ça vaut encore quelque chose ? 🎯" },
-            { num: "02", title: "Le Détecteur", tag: "IA", desc: "Il reconnaît quand ton cerveau part ailleurs — et te ramène doucement, sans jugement.", demo: "Je remarque que c'est la 3e nouvelle idée cette semaine 👀 On continue sur ton projet ?" },
-            { num: "03", title: "La Micro-Victoire", tag: "DAILY", desc: "Une seule chose par jour. Célébrée quand c'est fait. Ton cerveau TDAH a besoin de dopamine.", demo: "Aujourd'hui une seule chose 🎯 Quelle est la chose qui va faire avancer ton projet le plus ?" },
-          ].map((f, i) => (
-            <div key={i} style={{ padding: "24px 0", borderBottom: i < 2 ? "1px solid rgba(255,255,255,0.05)" : "none" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ fontSize: 32, fontWeight: 900, color: "rgba(255,255,255,0.05)" }}>{f.num}</span>
-                <span style={{ fontSize: 17, fontWeight: 800 }}>{f.title}</span>
-                <span style={{ fontSize: 10, fontWeight: 600, background: "rgba(45,125,210,0.2)", color: "#A8C8F0", border: "1px solid rgba(45,125,210,0.25)", padding: "2px 8px", borderRadius: 100 }}>{f.tag}</span>
+            { num:"01", title:"L'Ancre", tag:"CORE", desc:"Clarity apprend ton pourquoi profond. Quand tu veux tout abandonner, il te rappelle pourquoi t'as commencé.", demo:"Hey, tu te souviens pourquoi t'as commencé ? Tu voulais être libre. Ça vaut encore quelque chose ? 🎯" },
+            { num:"02", title:"Le Détecteur", tag:"IA", desc:"Il reconnaît quand ton cerveau part ailleurs — et te ramène doucement, sans jugement.", demo:"Je remarque que c'est la 3e nouvelle idée cette semaine 👀 On continue sur ton projet ?" },
+            { num:"03", title:"La Micro-Victoire", tag:"DAILY", desc:"Une seule chose par jour. Célébrée quand c'est fait. Ton cerveau TDAH a besoin de dopamine.", demo:"Aujourd'hui une seule chose 🎯 Quelle est la chose qui va faire avancer ton projet le plus ?" },
+          ].map((f,i) => (
+            <div key={i} style={{ padding:"24px 0", borderBottom: i<2?"1px solid rgba(255,255,255,0.05)":"none" }}>
+              <div style={{ display:"flex", alignItems:"center", gap:10, marginBottom:8 }}>
+                <span style={{ fontSize:32, fontWeight:900, color:"rgba(255,255,255,0.05)" }}>{f.num}</span>
+                <span style={{ fontSize:17, fontWeight:800 }}>{f.title}</span>
+                <span style={{ fontSize:10, fontWeight:600, background:"rgba(45,125,210,0.2)", color:"#A8C8F0", border:"1px solid rgba(45,125,210,0.25)", padding:"2px 8px", borderRadius:100 }}>{f.tag}</span>
               </div>
-              <p style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", lineHeight: 1.65, marginBottom: 12 }}>{f.desc}</p>
-              <div style={{ background: "rgba(45,125,210,0.15)", border: "1px solid rgba(45,125,210,0.2)", borderRadius: "14px 14px 14px 3px", padding: "10px 14px", fontSize: 13, color: "rgba(255,255,255,0.7)", lineHeight: 1.55 }}>{f.demo}</div>
+              <p style={{ fontSize:14, color:"rgba(255,255,255,0.4)", lineHeight:1.65, marginBottom:12 }}>{f.desc}</p>
+              <div style={{ background:"rgba(45,125,210,0.15)", border:"1px solid rgba(45,125,210,0.2)", borderRadius:"14px 14px 14px 3px", padding:"10px 14px", fontSize:13, color:"rgba(255,255,255,0.7)", lineHeight:1.55 }}>{f.demo}</div>
             </div>
           ))}
         </div>
       </div>
 
-      {/* TESTIMONIAL */}
-      <div style={{ padding: "40px 28px", background: "#0D1117" }}>
-        <div style={{ fontSize: 19, fontWeight: 700, lineHeight: 1.45, letterSpacing: -0.3, marginBottom: 12 }}>
-          "Enfin quelque chose qui comprend que mon cerveau est pas brisé — il est juste <span style={{ color: "#38BDF8" }}>différent</span>."
+      <div style={{ padding:"40px 28px", background:"#0D1117" }}>
+        <div style={{ fontSize:19, fontWeight:700, lineHeight:1.45, letterSpacing:-0.3, marginBottom:12 }}>
+          "Enfin quelque chose qui comprend que mon cerveau est pas brisé — il est juste <span style={{color:"#38BDF8"}}>différent</span>."
         </div>
-        <div style={{ fontSize: 13, color: "rgba(255,255,255,0.35)" }}>— Marc L., entrepreneur TDAH · Montréal</div>
+        <div style={{ fontSize:13, color:"rgba(255,255,255,0.35)" }}>— Marc L., entrepreneur TDAH · Montréal</div>
       </div>
 
-      {/* CTA FINAL */}
-      <div style={{ padding: "64px 28px", background: "#060810", textAlign: "center", position: "relative", overflow: "hidden" }}>
-        <div style={{ position: "absolute", width: 500, height: 400, background: "radial-gradient(ellipse,rgba(45,125,210,0.1) 0%,transparent 65%)", top: "50%", left: "50%", transform: "translate(-50%,-50%)", pointerEvents: "none" }} />
-        <div style={{ fontSize: 30, fontWeight: 900, letterSpacing: -1, lineHeight: 1.15, marginBottom: 12, position: "relative" }}>T'as assez attendu.<br />Commence maintenant.</div>
-        <p style={{ fontSize: 15, color: "rgba(255,255,255,0.4)", marginBottom: 32, fontWeight: 300, position: "relative" }}>Gratuit. 2 minutes. Aucune carte requise.</p>
-        <button style={{ ...s.btn, position: "relative" }} onClick={() => setScreen("signup")}>Oui, c'est moi — essayer →</button>
-        <div style={{ marginTop: 56, paddingTop: 24, borderTop: "1px solid rgba(255,255,255,0.06)", display: "flex", justifyContent: "space-between", fontSize: 11, color: "rgba(255,255,255,0.2)" }}>
-          <span>Clarity.</span>
-          <span>Fait avec 💙 pour les TDAH</span>
-          <span>© 2026</span>
+      <div style={{ padding:"64px 28px", background:"#060810", textAlign:"center", position:"relative", overflow:"hidden" }}>
+        <div style={{ position:"absolute", width:500, height:400, background:"radial-gradient(ellipse,rgba(45,125,210,0.1) 0%,transparent 65%)", top:"50%", left:"50%", transform:"translate(-50%,-50%)", pointerEvents:"none" }} />
+        <div style={{ fontSize:30, fontWeight:900, letterSpacing:-1, lineHeight:1.15, marginBottom:12, position:"relative" }}>T'as assez attendu.<br/>Commence maintenant.</div>
+        <p style={{ fontSize:15, color:"rgba(255,255,255,0.4)", marginBottom:32, fontWeight:300, position:"relative" }}>Gratuit. 2 minutes. Aucune carte requise.</p>
+        <button style={{ ...s.btn, position:"relative" }} onClick={() => setScreen("signup")}>Oui, c'est moi — essayer →</button>
+        <div style={{ marginTop:56, paddingTop:24, borderTop:"1px solid rgba(255,255,255,0.06)", display:"flex", justifyContent:"space-between", fontSize:11, color:"rgba(255,255,255,0.2)" }}>
+          <span>Clarity.</span><span>Fait avec 💙 pour les TDAH</span><span>© 2026</span>
         </div>
       </div>
     </div>
   );
 
-  // SIGNUP / LOGIN
   if (screen === "signup" || screen === "login") return (
-    <div style={{ ...s.wrap, justifyContent: "center", padding: "40px 24px" }}>
-      <div style={{ marginBottom: 32, textAlign: "center", display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+    <div style={{ ...s.wrap, justifyContent:"center", padding:"40px 24px" }}>
+      <div style={{ marginBottom:32, textAlign:"center", display:"flex", flexDirection:"column", alignItems:"center", gap:12 }}>
         <ClarityLogo size={56} />
-        <div style={{ fontSize: 26, fontWeight: 900 }}>Clarity<span style={{ color: "#2D7DD2" }}>.</span></div>
-        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 15 }}>{screen === "signup" ? "Crée ton compte gratuit" : "Connecte-toi"}</div>
+        <div style={{ fontSize:26, fontWeight:900 }}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
+        <div style={{ color:"rgba(255,255,255,0.45)", fontSize:15 }}>{screen==="signup"?"Crée ton compte gratuit":"Connecte-toi"}</div>
       </div>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <input style={s.input} type="email" placeholder="Ton email" value={email} onChange={e => setEmail(e.target.value)} onKeyDown={handleKey} />
-        <input style={s.input} type="password" placeholder="Mot de passe (min 6 caractères)" value={password} onChange={e => setPassword(e.target.value)} onKeyDown={handleKey} />
-        {authError && <div style={{ color: "#f87171", fontSize: 13, textAlign: "center" }}>{authError}</div>}
-        <button style={{ ...s.btn, marginTop: 8, maxWidth: "100%" }} onClick={handleAuth}>
-          {screen === "signup" ? "Créer mon compte →" : "Se connecter →"}
-        </button>
-        <button style={{ ...s.btnOutline }} onClick={() => setScreen(screen === "signup" ? "login" : "signup")}>
-          {screen === "signup" ? "J'ai déjà un compte" : "Créer un compte"}
-        </button>
-        <button style={{ background: "none", border: "none", color: "rgba(255,255,255,0.3)", fontSize: 13, cursor: "pointer", marginTop: 8 }} onClick={() => setScreen("landing")}>← Retour</button>
+      <div style={{ display:"flex", flexDirection:"column", gap:12 }}>
+        <input style={s.input} type="email" placeholder="Ton email" value={email} onChange={e=>setEmail(e.target.value)} onKeyDown={handleKey}/>
+        <input style={s.input} type="password" placeholder="Mot de passe (min 6 caractères)" value={password} onChange={e=>setPassword(e.target.value)} onKeyDown={handleKey}/>
+        {authError && <div style={{color:"#f87171",fontSize:13,textAlign:"center"}}>{authError}</div>}
+        <button style={{...s.btn,marginTop:8,maxWidth:"100%"}} onClick={handleAuth}>{screen==="signup"?"Créer mon compte →":"Se connecter →"}</button>
+        <button style={s.btnOutline} onClick={()=>setScreen(screen==="signup"?"login":"signup")}>{screen==="signup"?"J'ai déjà un compte":"Créer un compte"}</button>
+        <button style={{background:"none",border:"none",color:"rgba(255,255,255,0.3)",fontSize:13,cursor:"pointer",marginTop:8}} onClick={()=>setScreen("landing")}>← Retour</button>
       </div>
     </div>
   );
 
-  // ONBOARDING
   if (screen === "onboarding") return (
     <div style={s.wrap}>
       <div style={s.header}>
-        <ClarityLogo size={36} />
-        <div style={{ fontWeight: 900, fontSize: 18 }}>Clarity<span style={{ color: "#2D7DD2" }}>.</span></div>
+        <ClarityLogo size={36}/>
+        <div style={{fontWeight:900,fontSize:18}}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
       </div>
-      <div style={{ flex: 1, padding: "40px 24px", display: "flex", flexDirection: "column", justifyContent: "center" }}>
-        <div style={{ display: "flex", gap: 8, marginBottom: 36 }}>
-          {[0, 1, 2].map(i => <div key={i} style={{ flex: 1, height: 4, borderRadius: 2, background: i <= onboardingStep ? "linear-gradient(90deg,#2D7DD2,#38BDF8)" : "rgba(255,255,255,0.1)" }} />)}
+      <div style={{flex:1,padding:"40px 24px",display:"flex",flexDirection:"column",justifyContent:"center"}}>
+        <div style={{display:"flex",gap:8,marginBottom:36}}>
+          {[0,1,2].map(i=><div key={i} style={{flex:1,height:4,borderRadius:2,background:i<=onboardingStep?"linear-gradient(90deg,#2D7DD2,#38BDF8)":"rgba(255,255,255,0.1)"}}/>)}
         </div>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.3)", marginBottom: 12, letterSpacing: 1 }}>Question {onboardingStep + 1} sur 3</div>
-        <div style={{ fontSize: 24, fontWeight: 800, lineHeight: 1.3, marginBottom: 10 }}>{onboardingQuestions[onboardingStep].q}</div>
-        <div style={{ fontSize: 14, color: "rgba(255,255,255,0.4)", marginBottom: 28 }}>{onboardingQuestions[onboardingStep].hint}</div>
-        <textarea autoFocus value={currentInput} onChange={e => setCurrentInput(e.target.value)} onKeyDown={handleKey} placeholder="Écris ta réponse..." rows={3}
-          style={{ ...s.input, resize: "none", marginBottom: 16, lineHeight: 1.6 }} />
-        <button style={{ ...s.btn, maxWidth: "100%", opacity: currentInput.trim() ? 1 : 0.4 }} onClick={handleOnboardingNext} disabled={!currentInput.trim()}>
-          {onboardingStep < 2 ? "Continuer →" : "Commencer avec Clarity 💙"}
+        <div style={{fontSize:11,color:"rgba(255,255,255,0.3)",marginBottom:12,letterSpacing:1}}>Question {onboardingStep+1} sur 3</div>
+        <div style={{fontSize:24,fontWeight:800,lineHeight:1.3,marginBottom:10}}>{onboardingQuestions[onboardingStep].q}</div>
+        <div style={{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:28}}>{onboardingQuestions[onboardingStep].hint}</div>
+        <textarea autoFocus value={currentInput} onChange={e=>setCurrentInput(e.target.value)} onKeyDown={handleKey} placeholder="Écris ta réponse..." rows={3}
+          style={{...s.input,resize:"none",marginBottom:16,lineHeight:1.6}}/>
+        <button style={{...s.btn,maxWidth:"100%",opacity:currentInput.trim()?1:0.4}} onClick={handleOnboardingNext} disabled={!currentInput.trim()}>
+          {onboardingStep<2?"Continuer →":"Commencer avec Clarity 💙"}
         </button>
       </div>
     </div>
   );
 
-  // UPGRADE
   if (screen === "upgrade") return (
-    <div style={{ ...s.wrap, overflowY: "auto", padding: "40px 24px" }}>
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <ClarityLogo size={56} />
-        <div style={{ fontSize: 24, fontWeight: 800, marginBottom: 8, marginTop: 16 }}>T'as utilisé tes 10 messages gratuits !</div>
-        <div style={{ color: "rgba(255,255,255,0.45)", fontSize: 15 }}>Passe au Pro pour continuer.</div>
+    <div style={{...s.wrap,overflowY:"auto",padding:"40px 24px"}}>
+      <div style={{textAlign:"center",marginBottom:32}}>
+        <ClarityLogo size={56}/>
+        <div style={{fontSize:24,fontWeight:800,marginBottom:8,marginTop:16}}>T'as utilisé tes 10 messages gratuits !</div>
+        <div style={{color:"rgba(255,255,255,0.45)",fontSize:15}}>Passe au Pro pour continuer.</div>
       </div>
       {[
-        { plan: "free", name: "Gratuit", price: "0$", period: "pour toujours", features: ["10 messages / jour", "Onboarding TDAH", "Accès communauté"], current: true },
-        { plan: "pro", name: "Pro", price: "19$", period: "/ mois", features: ["Messages illimités", "Détecteur de dérive IA", "Analyse de tes patterns", "Support prioritaire"], featured: true },
-        { plan: "business", name: "Business", price: "49$", period: "/ mois", features: ["Tout le plan Pro", "Accountability partner", "Sessions focus guidées", "Rapport hebdomadaire"] },
-      ].map((p, i) => (
-        <div key={i} style={{ ...s.card, marginBottom: 12, border: p.featured ? "1px solid rgba(45,125,210,0.4)" : "1px solid rgba(255,255,255,0.07)", background: p.featured ? "linear-gradient(160deg,#0d1f3c,#091529)" : "#111827" }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
+        {plan:"free",name:"Gratuit",price:"0$",period:"pour toujours",features:["10 messages / jour","Onboarding TDAH","Accès communauté"],current:true},
+        {plan:"pro",name:"Pro",price:"19$",period:"/ mois",features:["Messages illimités","Détecteur de dérive IA","Voix de Clarity","Support prioritaire"],featured:true},
+        {plan:"business",name:"Business",price:"49$",period:"/ mois",features:["Tout le plan Pro","Accountability partner","Sessions focus guidées","Rapport hebdomadaire"]},
+      ].map((p,i)=>(
+        <div key={i} style={{background:p.featured?"linear-gradient(160deg,#0d1f3c,#091529)":"#111827",border:p.featured?"1px solid rgba(45,125,210,0.4)":"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:"24px",marginBottom:12}}>
+          <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12}}>
             <div>
-              <div style={{ fontSize: 12, color: "rgba(255,255,255,0.4)", letterSpacing: 1, textTransform: "uppercase" }}>{p.name}</div>
-              <div style={{ fontSize: 32, fontWeight: 900, color: p.featured ? "#38BDF8" : "white" }}>{p.price}<span style={{ fontSize: 14, color: "rgba(255,255,255,0.4)" }}> {p.period}</span></div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.4)",letterSpacing:1,textTransform:"uppercase"}}>{p.name}</div>
+              <div style={{fontSize:32,fontWeight:900,color:p.featured?"#38BDF8":"white"}}>{p.price}<span style={{fontSize:14,color:"rgba(255,255,255,0.4)"}}> {p.period}</span></div>
             </div>
-            {p.featured && <div style={{ background: "linear-gradient(135deg,#2D7DD2,#38BDF8)", color: "white", fontSize: 11, fontWeight: 700, padding: "4px 12px", borderRadius: 100 }}>⚡ Populaire</div>}
+            {p.featured&&<div style={{background:"linear-gradient(135deg,#2D7DD2,#38BDF8)",color:"white",fontSize:11,fontWeight:700,padding:"4px 12px",borderRadius:100}}>⚡ Populaire</div>}
           </div>
-          <ul style={{ listStyle: "none", marginBottom: 16, padding: 0 }}>
-            {p.features.map((f, j) => <li key={j} style={{ fontSize: 14, color: "rgba(255,255,255,0.6)", padding: "5px 0", display: "flex", gap: 8 }}><span style={{ color: "#38BDF8" }}>✓</span>{f}</li>)}
+          <ul style={{listStyle:"none",marginBottom:16,padding:0}}>
+            {p.features.map((f,j)=><li key={j} style={{fontSize:14,color:"rgba(255,255,255,0.6)",padding:"5px 0",display:"flex",gap:8}}><span style={{color:"#38BDF8"}}>✓</span>{f}</li>)}
           </ul>
-          <button style={{ ...(p.featured ? { ...s.btn, maxWidth: "100%" } : s.btnOutline) }} onClick={() => { setPlan(p.plan); setMessageCount(0); setScreen("chat"); }}>
-            {p.current ? "Continuer gratuit" : `Choisir ${p.name}`}
+          <button style={{...(p.featured?{...s.btn,maxWidth:"100%"}:s.btnOutline)}} onClick={()=>{setPlan(p.plan);setMessageCount(0);setScreen("chat");}}>
+            {p.current?"Continuer gratuit":`Choisir ${p.name}`}
           </button>
         </div>
       ))}
     </div>
   );
 
-  // CHAT
   return (
     <div style={s.wrap}>
       <div style={s.header}>
-        <ClarityLogo size={36} />
-        <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 900, fontSize: 16 }}>Clarity<span style={{ color: "#2D7DD2" }}>.</span></div>
-          <div style={{ fontSize: 11, color: "#38BDF8", display: "flex", alignItems: "center", gap: 5 }}>
-            <div style={{ width: 6, height: 6, borderRadius: "50%", background: "#38BDF8", boxShadow: "0 0 6px #38BDF8" }} />
+        <ClarityLogo size={36}/>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:900,fontSize:16}}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
+          <div style={{fontSize:11,color:"#38BDF8",display:"flex",alignItems:"center",gap:5}}>
+            <div style={{width:6,height:6,borderRadius:"50%",background:"#38BDF8",boxShadow:"0 0 6px #38BDF8"}}/>
             En ligne
           </div>
         </div>
-        {plan === "free" && (
-          <div style={{ fontSize: 11, color: messageCount >= 8 ? "#f87171" : "rgba(255,255,255,0.3)", background: "rgba(255,255,255,0.05)", padding: "4px 10px", borderRadius: 100, cursor: "pointer" }} onClick={() => setScreen("upgrade")}>
-            {PLANS.free.messages - messageCount} msg restants
+        <button onClick={()=>setVoiceEnabled(v=>!v)} style={{background:voiceEnabled?"rgba(45,125,210,0.2)":"rgba(255,255,255,0.05)",border:voiceEnabled?"1px solid rgba(45,125,210,0.3)":"1px solid rgba(255,255,255,0.08)",color:voiceEnabled?"#38BDF8":"rgba(255,255,255,0.3)",padding:"5px 12px",borderRadius:100,fontSize:11,cursor:"pointer",fontWeight:600,marginRight:8}}>
+          {voiceEnabled?"🔊 Voix ON":"🔇 Voix OFF"}
+        </button>
+        {plan==="free"&&(
+          <div style={{fontSize:11,color:messageCount>=8?"#f87171":"rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.05)",padding:"4px 10px",borderRadius:100,cursor:"pointer"}} onClick={()=>setScreen("upgrade")}>
+            {PLANS.free.messages-messageCount} msg
           </div>
         )}
       </div>
-      <div style={{ flex: 1, overflowY: "auto", padding: "24px 16px", display: "flex", flexDirection: "column", gap: 12 }}>
-        {messages.map((msg, i) => (
-          <div key={i} style={{ display: "flex", justifyContent: msg.role === "user" ? "flex-end" : "flex-start", alignItems: "flex-end", gap: 8 }}>
-            {msg.role === "assistant" && <ClarityLogo size={28} />}
-            <div style={{ maxWidth: "78%", padding: "12px 16px", borderRadius: msg.role === "user" ? "18px 18px 4px 18px" : "18px 18px 18px 4px", background: msg.role === "user" ? "linear-gradient(135deg,#2D7DD2,#5B9FE8)" : "#111827", border: msg.role === "assistant" ? "1px solid rgba(255,255,255,0.07)" : "none", fontSize: 15, lineHeight: 1.65, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+
+      <div style={{flex:1,overflowY:"auto",padding:"24px 16px",display:"flex",flexDirection:"column",gap:12}}>
+        {messages.map((msg,i)=>(
+          <div key={i} style={{display:"flex",justifyContent:msg.role==="user"?"flex-end":"flex-start",alignItems:"flex-end",gap:8}}>
+            {msg.role==="assistant"&&<ClarityLogo size={28}/>}
+            <div style={{maxWidth:"78%",padding:"12px 16px",borderRadius:msg.role==="user"?"18px 18px 4px 18px":"18px 18px 18px 4px",background:msg.role==="user"?"linear-gradient(135deg,#2D7DD2,#5B9FE8)":"#111827",border:msg.role==="assistant"?"1px solid rgba(255,255,255,0.07)":"none",fontSize:15,lineHeight:1.65,whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
               {msg.content}
             </div>
           </div>
         ))}
-        {loading && (
-          <div style={{ display: "flex", alignItems: "flex-end", gap: 8 }}>
-            <ClarityLogo size={28} />
-            <div style={{ background: "#111827", border: "1px solid rgba(255,255,255,0.07)", borderRadius: "18px 18px 18px 4px", padding: "14px 18px", display: "flex", gap: 5 }}>
-              {[0, 1, 2].map(i => <div key={i} style={{ width: 7, height: 7, borderRadius: "50%", background: "#5B9FE8", animation: `bounce 1.2s ease-in-out ${i * 0.2}s infinite` }} />)}
+        {loading&&(
+          <div style={{display:"flex",alignItems:"flex-end",gap:8}}>
+            <ClarityLogo size={28}/>
+            <div style={{background:"#111827",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5}}>
+              {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:"#5B9FE8",animation:`bounce 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}
             </div>
           </div>
         )}
-        <div ref={bottomRef} />
+        <div ref={bottomRef}/>
       </div>
+
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-6px);opacity:1}}`}</style>
-      <div style={{ padding: "12px 16px 24px", background: "rgba(6,8,16,0.95)", borderTop: "1px solid rgba(255,255,255,0.07)" }}>
-        <div style={{ display: "flex", gap: 10, alignItems: "flex-end", background: "#111827", border: "1px solid rgba(45,125,210,0.25)", borderRadius: 24, padding: "8px 8px 8px 16px" }}>
-          <textarea ref={inputRef} value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey} placeholder="Écris ici..." rows={1}
-            style={{ flex: 1, background: "transparent", border: "none", outline: "none", color: "white", fontSize: 15, resize: "none", fontFamily: "system-ui,sans-serif", lineHeight: 1.5, maxHeight: 120, overflowY: "auto", padding: "6px 0", caretColor: "#2D7DD2" }} />
-          <button onClick={sendMessage} disabled={!input.trim() || loading}
-            style={{ width: 38, height: 38, borderRadius: "50%", border: "none", cursor: input.trim() && !loading ? "pointer" : "default", background: input.trim() && !loading ? "linear-gradient(135deg,#2D7DD2,#5B9FE8)" : "rgba(255,255,255,0.06)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0, transition: "all 0.2s" }}>
-            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 8L2 2l3 6-3 6 12-6z" fill={input.trim() && !loading ? "white" : "rgba(255,255,255,0.25)"} /></svg>
+
+      <div style={{padding:"12px 16px 24px",background:"rgba(6,8,16,0.95)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
+        <div style={{display:"flex",gap:10,alignItems:"flex-end",background:"#111827",border:`1px solid ${listening?"rgba(255,80,80,0.5)":"rgba(45,125,210,0.25)"}`,borderRadius:24,padding:"8px 8px 8px 16px",transition:"border 0.2s"}}>
+          <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKey} placeholder={listening?"Clarity t'écoute...":"Écris ou parle..."} rows={1}
+            style={{flex:1,background:"transparent",border:"none",outline:"none",color:"white",fontSize:15,resize:"none",fontFamily:"system-ui,sans-serif",lineHeight:1.5,maxHeight:120,overflowY:"auto",padding:"6px 0",caretColor:"#2D7DD2"}}/>
+          <button onClick={listening?stopListening:startListening}
+            style={{width:38,height:38,borderRadius:"50%",border:"none",cursor:"pointer",background:listening?"linear-gradient(135deg,#f87171,#ef4444)":"rgba(255,255,255,0.08)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s",animation:listening?"pulse 1s infinite":"none"}}>
+            <span style={{fontSize:16}}>{listening?"⏹":"🎤"}</span>
+          </button>
+          <button onClick={sendMessage} disabled={!input.trim()||loading}
+            style={{width:38,height:38,borderRadius:"50%",border:"none",cursor:input.trim()&&!loading?"pointer":"default",background:input.trim()&&!loading?"linear-gradient(135deg,#2D7DD2,#5B9FE8)":"rgba(255,255,255,0.06)",display:"flex",alignItems:"center",justifyContent:"center",flexShrink:0,transition:"all 0.2s"}}>
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none"><path d="M14 8L2 2l3 6-3 6 12-6z" fill={input.trim()&&!loading?"white":"rgba(255,255,255,0.25)"}/></svg>
           </button>
         </div>
-        <p style={{ fontSize: 11, color: "rgba(255,255,255,0.15)", textAlign: "center", marginTop: 10 }}>Clarity · For ADHD Minds 💙</p>
+        <p style={{fontSize:11,color:"rgba(255,255,255,0.15)",textAlign:"center",marginTop:10}}>Clarity · For ADHD Minds 💙</p>
       </div>
     </div>
   );
