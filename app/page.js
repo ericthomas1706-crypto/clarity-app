@@ -143,7 +143,13 @@ export default function ClarityApp() {
       if (u.name && u.project && u.why) {
         setName(u.name); setProject(u.project); setWhy(u.why);
         setScreen("chat");
+        // Load conversation history
+      const msgHistory = await dbQuery("GET", "messages", null, `?user_id=eq.${u.id}&order=created_at.asc&limit=50`);
+      if (msgHistory && msgHistory.length > 0) {
+        setMessages(msgHistory.map(m => ({ role: m.role, content: m.content })));
+      } else {
         setMessages([{ role: "assistant", content: `Bon retour ${u.name} ! 💙 On reprend là où on était. C'est quoi la prochaine étape pour "${u.project}" ?` }]);
+      }
       } else { setScreen("onboarding"); }
     } else { setAuthError("Email ou mot de passe incorrect."); }
   };
@@ -185,7 +191,13 @@ export default function ClarityApp() {
       const res = await fetch("/api/chat", { method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ messages: newMessages.map(m => ({ role: m.role, content: m.content })), system: getSystemPrompt(name, project, why) }) });
       const data = await res.json();
-      setMessages([...newMessages, { role: "assistant", content: data.content }]);
+      const reply = data.content;
+      setMessages([...newMessages, { role: "assistant", content: reply }]);
+      // Save both messages to DB
+      if (userId) {
+        await dbQuery("POST", "messages", { user_id: userId, role: "user", content: userMsg });
+        await dbQuery("POST", "messages", { user_id: userId, role: "assistant", content: reply });
+      }
     } catch { setMessages([...newMessages, { role: "assistant", content: "Petite erreur, réessaie ! 🔄" }]); }
     setLoading(false);
     setTimeout(() => inputRef.current?.focus(), 100);
