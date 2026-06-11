@@ -105,7 +105,8 @@ export default function ClarityApp() {
     playWelcomeSound();
     // Auto-login from saved session
     try {
-      const saved = localStorage.getItem('clarity_session');
+      const cookieVal = document.cookie.split('; ').find(r => r.startsWith('clarity_session='));
+      const saved = cookieVal ? decodeURIComponent(cookieVal.split('=').slice(1).join('=')) : null;
       if (saved) {
         const session = JSON.parse(saved);
         if (session.userId && session.name && session.project && session.why) {
@@ -189,7 +190,7 @@ export default function ClarityApp() {
       newWhy = currentInput.trim(); setWhy(newWhy);
       if (userId) {
         await dbQuery("PATCH", "users", { name: newName, project: newProject, why: newWhy }, `?id=eq.${userId}`);
-        try { localStorage.setItem('clarity_session', JSON.stringify({ userId, name: newName, project: newProject, why: newWhy, plan: 'free', messageCount: 0 })); } catch(e) {}
+        try { const d = new Date(); d.setFullYear(d.getFullYear()+1); document.cookie = `clarity_session=${encodeURIComponent(JSON.stringify({ userId, name: newName, project: newProject, why: newWhy, plan: 'free', messageCount: 0 }))}; expires=${d.toUTCString()}; path=/`; } catch(e) {}
       }
       setScreen("chat");
       setLoading(true);
