@@ -112,6 +112,10 @@ export default function ClarityApp() {
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [streak, setStreak] = useState(0);
+  const [todayTask, setTodayTask] = useState("");
+  const [todayDone, setTodayDone] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [streak, setStreak] = useState(0);
   const [todayVictory, setTodayVictory] = useState("");
   const [victoryInput, setVictoryInput] = useState("");
   const bottomRef = useRef(null);
@@ -611,6 +615,90 @@ export default function ClarityApp() {
         <button onClick={()=>setShowDashboard(false)} style={{...s.btn,maxWidth:"100%",padding:"16px"}}>
           💙 Parler à Clarity maintenant
         </button>
+      </div>
+    </div>
+  );
+
+  // DASHBOARD
+  if (screen === "chat" && showDashboard) return (
+    <div style={{...s.wrap, overflowY:"auto"}}>
+      <div style={{...s.header}}>
+        <ClarityLogo size={36}/>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:900,fontSize:16}}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
+          <div style={{fontSize:11,color:"#38BDF8"}}>Bonjour {name} 👋</div>
+        </div>
+        <button onClick={()=>setShowDashboard(false)} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"8px 16px",borderRadius:100,fontSize:13,fontWeight:600,cursor:"pointer"}}>Chat →</button>
+      </div>
+
+      <div style={{padding:"24px 20px",display:"flex",flexDirection:"column",gap:16}}>
+
+        {/* Streak */}
+        <div style={{background:"linear-gradient(135deg,#0d1f3c,#091529)",border:"1px solid rgba(45,125,210,0.3)",borderRadius:20,padding:"20px",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{fontSize:48,lineHeight:1}}>{streak >= 7 ? "🔥" : streak >= 3 ? "⚡" : "✨"}</div>
+          <div>
+            <div style={{fontSize:28,fontWeight:900,color:streak>=7?"#f97316":streak>=3?"#38BDF8":"white"}}>{streak} jour{streak>1?"s":""}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.4)"}}>{streak===0?"Commence aujourd'hui !":streak>=7?"Tu es en feu ! Continue !":streak>=3?"Belle série, continue !":"Tu reviens, c'est déjà énorme."}</div>
+          </div>
+        </div>
+
+        {/* Projet */}
+        <div style={{background:"#111827",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:"20px"}}>
+          <div style={{fontSize:11,color:"#5B9FE8",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Ton projet</div>
+          <div style={{fontSize:17,fontWeight:700,marginBottom:6}}>{project || "Pas encore défini"}</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",fontStyle:"italic"}}>"{why && why.length > 60 ? why.slice(0,60)+"..." : why}"</div>
+        </div>
+
+        {/* Micro-victoire du jour */}
+        <div style={{background:"#111827",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:"20px"}}>
+          <div style={{fontSize:11,color:"#5B9FE8",letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>🎯 Micro-victoire du jour</div>
+          {!todayTask ? (
+            <div>
+              <div style={{fontSize:14,color:"rgba(255,255,255,0.45)",marginBottom:12}}>C'est quoi ta seule chose aujourd'hui ?</div>
+              <div style={{display:"flex",gap:8}}>
+                <input
+                  placeholder="Ex: Envoyer un email à 3 personnes TDAH..."
+                  style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(45,125,210,0.3)",borderRadius:10,padding:"10px 14px",fontSize:13,color:"white",outline:"none",fontFamily:"system-ui"}}
+                  onKeyDown={(e)=>{
+                    if(e.key==="Enter" && e.target.value.trim()){
+                      const task = e.target.value.trim();
+                      setTodayTask(task);
+                      try{localStorage.setItem('clarity_today_task',task);localStorage.setItem('clarity_task_date',new Date().toDateString());localStorage.setItem('clarity_task_done','false');}catch(err){}
+                    }
+                  }}
+                />
+                <button style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"10px 16px",borderRadius:10,cursor:"pointer",fontSize:13,fontWeight:600}}
+                  onClick={(e)=>{
+                    const input = e.target.previousSibling;
+                    if(input && input.value.trim()){
+                      const task = input.value.trim();
+                      setTodayTask(task);
+                      try{localStorage.setItem('clarity_today_task',task);localStorage.setItem('clarity_task_date',new Date().toDateString());localStorage.setItem('clarity_task_done','false');}catch(err){}
+                    }
+                  }}>OK</button>
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{fontSize:15,color:todayDone?"rgba(255,255,255,0.4)":"white",textDecoration:todayDone?"line-through":"none",marginBottom:12}}>{todayTask}</div>
+              {!todayDone ? (
+                <button onClick={()=>{setTodayDone(true);try{localStorage.setItem('clarity_task_done','true');}catch(err){}}} style={{background:"linear-gradient(135deg,#2D7DD2,#38BDF8)",border:"none",color:"white",padding:"12px 24px",borderRadius:100,fontSize:14,fontWeight:600,cursor:"pointer",width:"100%"}}>
+                  ✅ C'est fait !
+                </button>
+              ) : (
+                <div style={{background:"rgba(56,189,248,0.1)",border:"1px solid rgba(56,189,248,0.3)",borderRadius:12,padding:"12px",textAlign:"center",fontSize:14,color:"#38BDF8",fontWeight:600}}>
+                  🎉 Micro-victoire accomplie ! Ricky est fier de toi.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* CTA chat */}
+        <button onClick={()=>setShowDashboard(false)} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"16px",borderRadius:100,fontSize:16,fontWeight:600,cursor:"pointer",boxShadow:"0 6px 24px rgba(45,125,210,0.3)"}}>
+          💙 Parler à Clarity
+        </button>
+
       </div>
     </div>
   );
