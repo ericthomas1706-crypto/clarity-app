@@ -205,7 +205,7 @@ export default function ClarityApp() {
       setPlan(u.plan || "free");
       if (u.name && u.project && u.why) {
         setName(u.name); setProject(u.project); setWhy(u.why);
-        setScreen("chat");
+        setScreen("dashboard");
         // Load conversation history
       const msgHistory = await dbQuery("GET", "messages", null, `?user_id=eq.${u.id}&order=created_at.asc&limit=50`);
       if (msgHistory && msgHistory.length > 0) {
