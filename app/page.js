@@ -110,6 +110,10 @@ export default function ClarityApp() {
   const [voiceMode, setVoiceMode] = useState(false);
   const [isListeningVoice, setIsListeningVoice] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [showDashboard, setShowDashboard] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [todayVictory, setTodayVictory] = useState("");
+  const [victoryInput, setVictoryInput] = useState("");
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -217,7 +221,9 @@ export default function ClarityApp() {
     if (onboardingStep === 2) {
       newWhy = currentInput.trim(); setWhy(newWhy);
       if (userId) {
-        await dbQuery("PATCH", "users", { name: newName, project: newProject, why: newWhy }, `?id=eq.${userId}`);
+        const today = new Date().toDateString();
+        await dbQuery("PATCH", "users", { name: newName, project: newProject, why: newWhy, streak: 1, last_login: today }, `?id=eq.${userId}`);
+        setStreak(1);
         try { const d = new Date(); d.setFullYear(d.getFullYear()+1); document.cookie = `clarity_session=${encodeURIComponent(JSON.stringify({ userId, name: newName, project: newProject, why: newWhy, plan: 'free', messageCount: 0 }))}; expires=${d.toUTCString()}; path=/`; } catch(e) {}
       }
       setScreen("chat");
@@ -524,6 +530,88 @@ export default function ClarityApp() {
           </button>
         </div>
       ))}
+    </div>
+  );
+
+  // DASHBOARD
+  if (screen === "chat" && showDashboard) return (
+    <div style={{...s.wrap, overflowY:"auto"}}>
+      <div style={s.header}>
+        <ClarityLogo size={36}/>
+        <div style={{flex:1}}>
+          <div style={{fontWeight:900,fontSize:16}}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
+          <div style={{fontSize:11,color:"#38BDF8"}}>Bon retour {name} 👋</div>
+        </div>
+        <button onClick={()=>setShowDashboard(false)} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"8px 16px",borderRadius:100,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+          Parler à Clarity →
+        </button>
+      </div>
+
+      <div style={{padding:"28px 20px",display:"flex",flexDirection:"column",gap:16}}>
+        
+        {/* Streak */}
+        <div style={{background:"linear-gradient(135deg,#0a1628,#0d1f3c)",border:"1px solid rgba(45,125,210,0.3)",borderRadius:20,padding:"20px 24px",display:"flex",alignItems:"center",gap:16}}>
+          <div style={{fontSize:44,lineHeight:1}}>{streak >= 7 ? "🔥" : streak >= 3 ? "⚡" : "✨"}</div>
+          <div>
+            <div style={{fontSize:32,fontWeight:900,color:"#38BDF8",lineHeight:1}}>{streak}</div>
+            <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",marginTop:4}}>
+              {streak === 0 ? "Commence aujourd'hui !" : streak === 1 ? "Premier jour — continue !" : `jour${streak > 1 ? "s" : ""} de suite 🔥`}
+            </div>
+          </div>
+        </div>
+
+        {/* Project anchor */}
+        <div style={{background:"#111827",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:"20px 24px"}}>
+          <div style={{fontSize:11,color:"#5B9FE8",letterSpacing:2,textTransform:"uppercase",marginBottom:10}}>Ton ancre</div>
+          <div style={{fontSize:17,fontWeight:700,marginBottom:6}}>{project || "Pas encore défini"}</div>
+          <div style={{fontSize:13,color:"rgba(255,255,255,0.4)",fontStyle:"italic"}}>"{why || "..."}"</div>
+        </div>
+
+        {/* Micro victoire du jour */}
+        <div style={{background:"#111827",border:"1px solid rgba(255,255,255,0.07)",borderRadius:20,padding:"20px 24px"}}>
+          <div style={{fontSize:11,color:"#5B9FE8",letterSpacing:2,textTransform:"uppercase",marginBottom:12}}>🎯 Ta micro-victoire du jour</div>
+          {todayVictory ? (
+            <div style={{display:"flex",alignItems:"center",gap:12}}>
+              <div style={{width:28,height:28,borderRadius:"50%",background:"rgba(56,189,248,0.2)",border:"1px solid #38BDF8",display:"flex",alignItems:"center",justifyContent:"center",fontSize:14,flexShrink:0}}>✓</div>
+              <div style={{fontSize:15,color:"rgba(255,255,255,0.8)"}}>{todayVictory}</div>
+            </div>
+          ) : (
+            <div>
+              <div style={{fontSize:14,color:"rgba(255,255,255,0.4)",marginBottom:12}}>C'est quoi ta seule chose aujourd'hui ?</div>
+              <div style={{display:"flex",gap:8}}>
+                <input 
+                  value={victoryInput}
+                  onChange={e=>setVictoryInput(e.target.value)}
+                  onKeyDown={e=>{if(e.key==="Enter"&&victoryInput.trim()){setTodayVictory(victoryInput.trim());setVictoryInput("");}}}
+                  placeholder="Ex: Envoyer mon premier email à 5 clients..."
+                  style={{flex:1,background:"rgba(255,255,255,0.05)",border:"1px solid rgba(45,125,210,0.3)",borderRadius:12,padding:"12px 14px",fontSize:14,color:"white",fontFamily:"system-ui",outline:"none"}}
+                />
+                <button 
+                  onClick={()=>{if(victoryInput.trim()){setTodayVictory(victoryInput.trim());setVictoryInput("");}}}
+                  style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",borderRadius:12,padding:"12px 16px",color:"white",fontSize:14,cursor:"pointer",fontWeight:600}}>
+                  ✓
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Messages count */}
+        {plan === "free" && (
+          <div style={{background:"rgba(255,255,255,0.03)",border:"1px solid rgba(255,255,255,0.06)",borderRadius:16,padding:"16px 20px",display:"flex",justifyContent:"space-between",alignItems:"center"}}>
+            <div>
+              <div style={{fontSize:14,fontWeight:600}}>Messages restants</div>
+              <div style={{fontSize:12,color:"rgba(255,255,255,0.4)"}}>Plan gratuit</div>
+            </div>
+            <div style={{fontSize:28,fontWeight:900,color:messageCount>=8?"#f87171":"#38BDF8"}}>{10-messageCount}</div>
+          </div>
+        )}
+
+        {/* CTA */}
+        <button onClick={()=>setShowDashboard(false)} style={{...s.btn,maxWidth:"100%",padding:"16px"}}>
+          💙 Parler à Clarity maintenant
+        </button>
+      </div>
     </div>
   );
 
