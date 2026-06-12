@@ -283,6 +283,67 @@ export default function ClarityApp() {
     input: { background: "#111827", border: "1px solid rgba(45,125,210,0.3)", borderRadius: 12, padding: "14px 16px", fontSize: 15, color: "white", fontFamily: "system-ui,sans-serif", outline: "none", width: "100%", boxSizing: "border-box" },
   };
 
+  const startVoiceMode = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) { alert("Utilise Chrome pour le mode vocal !"); return; }
+    setVoiceMode(true);
+    startVoiceListen();
+  };
+
+  const startVoiceListen = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    const r = new SR();
+    r.lang = 'fr-FR'; r.continuous = false; r.interimResults = false;
+    r.onstart = () => setIsListeningVoice(true);
+    r.onresult = async (e) => {
+      setIsListeningVoice(false);
+      const transcript = e.results[0][0].transcript;
+      if (!transcript.trim()) return;
+      const newMessages = [...messages, { role: "user", content: transcript }];
+      setMessages(newMessages);
+      setIsSpeaking(true);
+      try {
+        const res = await fetch("/api/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            messages: newMessages.map(m => ({ role: m.role, content: m.content })),
+            system: getSystemPrompt(name, project, why)
+          }),
+        });
+        const data = await res.json();
+        const reply = data.content;
+        setMessages([...newMessages, { role: "assistant", content: reply }]);
+        // Speak with ElevenLabs or browser TTS
+        try {
+          const ttsRes = await fetch("/api/speak", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: reply })
+          });
+          if (ttsRes.ok) {
+            const blob = await ttsRes.blob();
+            const url = URL.createObjectURL(blob);
+            const audio = new Audio(url);
+            audio.onended = () => { setIsSpeaking(false); setTimeout(startVoiceListen, 500); };
+            audio.play();
+          } else { throw new Error('TTS failed'); }
+        } catch {
+          // Fallback to browser TTS
+          const utterance = new SpeechSynthesisUtterance(reply);
+          utterance.lang = 'fr-FR';
+          utterance.rate = 0.9;
+          utterance.onend = () => { setIsSpeaking(false); setTimeout(startVoiceListen, 500); };
+          window.speechSynthesis.speak(utterance);
+        }
+      } catch { setIsSpeaking(false); }
+    };
+    r.onerror = () => { setIsListeningVoice(false); };
+    r.onend = () => setIsListeningVoice(false);
+    r.start();
+  };
+
   const onboardingQuestions = [
     { q: "C'est quoi ton prénom ?", hint: "Juste ton prénom 😊" },
     { q: "C'est quoi ton projet ou rêve en ce moment ?", hint: "Même si c'est flou, dis-moi ce qui t'allume." },
