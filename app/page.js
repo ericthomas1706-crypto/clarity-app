@@ -213,6 +213,7 @@ export default function ClarityApp() {
       } else {
         setMessages([{ role: "assistant", content: `Bon retour ${u.name} ! 💙 On reprend là où on était. C'est quoi la prochaine étape pour "${u.project}" ?` }]);
       }
+      setScreen("dashboard");
       } else { setScreen("onboarding"); }
     } else { setAuthError("Email ou mot de passe incorrect."); }
   };
