@@ -107,6 +107,7 @@ export default function ClarityApp() {
   const [rememberMe, setRememberMe] = useState(false);
   const [listening, setListening] = useState(false);
   const [showVoiceReward, setShowVoiceReward] = useState(false);
+  const [showStory, setShowStory] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -448,6 +449,7 @@ export default function ClarityApp() {
             En ligne
           </div>
         </div>
+        <button onClick={()=>setShowStory(true)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",fontSize:16,cursor:"pointer",padding:"4px 8px"}}>👤</button>
         {plan==="free"&&(
           <div style={{fontSize:11,color:messageCount>=8?"#f87171":"rgba(255,255,255,0.3)",background:"rgba(255,255,255,0.05)",padding:"4px 10px",borderRadius:100,cursor:"pointer"}} onClick={()=>setScreen("upgrade")}>
             {10-messageCount} msg
@@ -487,6 +489,40 @@ export default function ClarityApp() {
         <div ref={bottomRef}/>
       </div>
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-6px);opacity:1}}`}</style>
+      {showStory && (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"rgba(0,0,0,0.85)",zIndex:100,display:"flex",alignItems:"flex-end",justifyContent:"center"}} onClick={()=>setShowStory(false)}>
+          <div style={{background:"#0D1117",borderRadius:"24px 24px 0 0",padding:"32px 24px 48px",maxWidth:640,width:"100%",border:"1px solid rgba(45,125,210,0.2)"}} onClick={e=>e.stopPropagation()}>
+            <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:24}}>
+              <div style={{fontSize:18,fontWeight:900}}>Mon histoire 💙</div>
+              <button onClick={()=>setShowStory(false)} style={{background:"none",border:"none",color:"rgba(255,255,255,0.4)",fontSize:20,cursor:"pointer"}}>✕</button>
+            </div>
+            <div style={{display:"flex",alignItems:"center",gap:16,marginBottom:24,background:"rgba(45,125,210,0.1)",border:"1px solid rgba(45,125,210,0.2)",borderRadius:16,padding:16}}>
+              <div style={{width:60,height:60,borderRadius:"50%",background:"linear-gradient(135deg,#2D7DD2,#38BDF8)",display:"flex",alignItems:"center",justifyContent:"center",fontSize:24,flexShrink:0}}>✈️</div>
+              <div>
+                <div style={{fontWeight:800,fontSize:16}}>Eric Thomas</div>
+                <div style={{fontSize:12,color:"#38BDF8",letterSpacing:1}}>FONDATEUR · TDAH · VOYAGEUR</div>
+              </div>
+            </div>
+            <div style={{display:"flex",flexDirection:"column",gap:14}}>
+              {[
+                {icon:"🌍", text:"J'ai voyagé dans plus de 30 pays à la recherche de ma passion. Mon cerveau TDAH avait besoin de mouvement pour exister."},
+                {icon:"💼", text:"J'ai lancé 3 entreprises — et abandonné les 3. Pas par paresse. Parce que sans passion, mon cerveau s'éteint."},
+                {icon:"😔", text:"Pendant des années j'ai cherché un outil qui me comprend vraiment. Pas la médication. Quelque chose qui reste là quand mon cerveau veut partir ailleurs."},
+                {icon:"💙", text:"Clarity, c'est ce que j'aurais voulu avoir. Je l'ai bâti pour toi."},
+              ].map((item,i) => (
+                <div key={i} style={{display:"flex",gap:12,alignItems:"flex-start"}}>
+                  <span style={{fontSize:20,flexShrink:0}}>{item.icon}</span>
+                  <p style={{fontSize:14,color:"rgba(255,255,255,0.65)",lineHeight:1.65,margin:0}}>{item.text}</p>
+                </div>
+              ))}
+            </div>
+            <div style={{marginTop:24,padding:16,background:"rgba(45,125,210,0.1)",borderRadius:12,border:"1px solid rgba(45,125,210,0.2)",textAlign:"center"}}>
+              <div style={{fontSize:13,color:"rgba(255,255,255,0.5)",marginBottom:4}}>Tu veux me parler directement ?</div>
+              <div style={{fontSize:14,color:"#38BDF8",fontWeight:600}}>Atteins 30 jours dans Clarity 🏆</div>
+            </div>
+          </div>
+        </div>
+      )}
       <div style={{padding:"12px 16px 24px",background:"rgba(6,8,16,0.95)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
         <div style={{display:"flex",gap:10,alignItems:"flex-end",background:"#111827",border:`1px solid ${listening?"rgba(255,80,80,0.4)":"rgba(45,125,210,0.25)"}`,borderRadius:24,padding:"8px 8px 8px 16px"}}>
           <textarea ref={inputRef} value={input} onChange={e=>setInput(e.target.value)} onKeyDown={handleKey} placeholder={listening?"Clarity t'écoute...":"Écris ou parle..."} rows={1}
