@@ -249,7 +249,7 @@ export default function ClarityApp() {
       const reply = data.content;
       setMessages([...newMessages, { role: "assistant", content: reply }]);
       // Play Ricky's voice if micro-victory detected
-      const victoryKeywords = ['bravo', 'félicitations', 'excellent', 'parfait', 'super', 'victoire', 'accompli', 'terminé', 'fini', 'complété', 'bien joué', 'fier', 'proud', 'congrat', 'amazing', 'great', 'fantastic', 'incroyable', 'génial'];
+      const victoryKeywords = ['bravo', 'felicitation', 'félicitation', 'excellent', 'parfait', 'super', 'victoire', 'accompli', 'termine', 'terminé', 'fini', 'complete', 'complété', 'bien joue', 'fier', 'fiere', 'proud', 'congrat', 'amazing', 'great', 'fantastic', 'incroyable', 'genial', 'génial', 'raison d', 'bien fait', 'continue', 'avance'];
       const hasVictory = victoryKeywords.some(k => reply.toLowerCase().includes(k));
       if (hasVictory) {
         setTimeout(() => setShowVoiceReward(true), 1000);
