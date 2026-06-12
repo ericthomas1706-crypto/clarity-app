@@ -106,6 +106,7 @@ export default function ClarityApp() {
   const [authError, setAuthError] = useState("");
   const [rememberMe, setRememberMe] = useState(false);
   const [listening, setListening] = useState(false);
+  const [showVoiceReward, setShowVoiceReward] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -251,11 +252,7 @@ export default function ClarityApp() {
       const victoryKeywords = ['bravo', 'félicitations', 'excellent', 'parfait', 'super', 'victoire', 'accompli', 'terminé', 'fini', 'complété', 'bien joué', 'fier', 'proud', 'congrat', 'amazing', 'great', 'fantastic', 'incroyable', 'génial'];
       const hasVictory = victoryKeywords.some(k => reply.toLowerCase().includes(k));
       if (hasVictory) {
-        setTimeout(() => {
-          const audio = new Audio('/clarity-voice.mp3');
-          audio.volume = 1.0;
-          audio.play().catch(e => console.log('Audio error:', e));
-        }, 1000);
+        setTimeout(() => setShowVoiceReward(true), 1000);
       }
       // Save both messages to DB
       if (userId) {
@@ -473,6 +470,18 @@ export default function ClarityApp() {
             <div style={{background:"#111827",border:"1px solid rgba(255,255,255,0.07)",borderRadius:"18px 18px 18px 4px",padding:"14px 18px",display:"flex",gap:5}}>
               {[0,1,2].map(i=><div key={i} style={{width:7,height:7,borderRadius:"50%",background:"#5B9FE8",animation:`bounce 1.2s ease-in-out ${i*0.2}s infinite`}}/>)}
             </div>
+          </div>
+        )}
+        {showVoiceReward && (
+          <div style={{display:"flex",justifyContent:"center",margin:"8px 0"}}>
+            <button onClick={()=>{
+              const audio = new Audio('/clarity-voice.mp3');
+              audio.volume = 1.0;
+              audio.play();
+              setShowVoiceReward(false);
+            }} style={{background:"linear-gradient(135deg,#2D7DD2,#38BDF8)",border:"none",borderRadius:100,padding:"12px 24px",color:"white",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:8,boxShadow:"0 4px 20px rgba(45,125,210,0.4)"}}>
+              🎙️ Message de Ricky pour toi
+            </button>
           </div>
         )}
         <div ref={bottomRef}/>
