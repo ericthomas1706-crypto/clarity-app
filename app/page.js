@@ -153,8 +153,7 @@ export default function ClarityApp() {
             } else {
               setMessages([{ role: "assistant", content: `Bon retour ${session.name} ! 💙 On continue sur "${session.project}" ?` }]);
             }
-            setScreen("chat");
-            setShowDashboard(true);
+            setScreen("dashboard");
           });
         }
       }
@@ -539,7 +538,7 @@ export default function ClarityApp() {
   );
 
   // DASHBOARD
-  if (screen === "chat" && showDashboard) return (
+  if (screen === "dashboard") return (
     <div style={{...s.wrap, overflowY:"auto"}}>
       <div style={s.header}>
         <ClarityLogo size={36}/>
@@ -547,7 +546,7 @@ export default function ClarityApp() {
           <div style={{fontWeight:900,fontSize:16}}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
           <div style={{fontSize:11,color:"#38BDF8"}}>Bon retour {name} 👋</div>
         </div>
-        <button onClick={()=>setShowDashboard(false)} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"8px 16px",borderRadius:100,fontSize:12,fontWeight:600,cursor:"pointer"}}>
+        <button onClick={()=>setScreen("chat")} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"8px 16px",borderRadius:100,fontSize:12,fontWeight:600,cursor:"pointer"}}>
           Parler à Clarity →
         </button>
       </div>
@@ -613,7 +612,7 @@ export default function ClarityApp() {
         )}
 
         {/* CTA */}
-        <button onClick={()=>setShowDashboard(false)} style={{...s.btn,maxWidth:"100%",padding:"16px"}}>
+        <button onClick={()=>setScreen("chat")} style={{...s.btn,maxWidth:"100%",padding:"16px"}}>
           💙 Parler à Clarity maintenant
         </button>
       </div>
@@ -621,7 +620,7 @@ export default function ClarityApp() {
   );
 
   // DASHBOARD
-  if (screen === "chat" && showDashboard) return (
+  if (screen === "dashboard") return (
     <div style={{...s.wrap, overflowY:"auto"}}>
       <div style={{...s.header}}>
         <ClarityLogo size={36}/>
@@ -629,7 +628,7 @@ export default function ClarityApp() {
           <div style={{fontWeight:900,fontSize:16}}>Clarity<span style={{color:"#2D7DD2"}}>.</span></div>
           <div style={{fontSize:11,color:"#38BDF8"}}>Bonjour {name} 👋</div>
         </div>
-        <button onClick={()=>setShowDashboard(false)} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"8px 16px",borderRadius:100,fontSize:13,fontWeight:600,cursor:"pointer"}}>Chat →</button>
+        <button onClick={()=>setScreen("chat")} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"8px 16px",borderRadius:100,fontSize:13,fontWeight:600,cursor:"pointer"}}>Chat →</button>
       </div>
 
       <div style={{padding:"24px 20px",display:"flex",flexDirection:"column",gap:16}}>
@@ -696,7 +695,7 @@ export default function ClarityApp() {
         </div>
 
         {/* CTA chat */}
-        <button onClick={()=>setShowDashboard(false)} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"16px",borderRadius:100,fontSize:16,fontWeight:600,cursor:"pointer",boxShadow:"0 6px 24px rgba(45,125,210,0.3)"}}>
+        <button onClick={()=>setScreen("chat")} style={{background:"linear-gradient(135deg,#2D7DD2,#5B9FE8)",border:"none",color:"white",padding:"16px",borderRadius:100,fontSize:16,fontWeight:600,cursor:"pointer",boxShadow:"0 6px 24px rgba(45,125,210,0.3)"}}>
           💙 Parler à Clarity
         </button>
 
