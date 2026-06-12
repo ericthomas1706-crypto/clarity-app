@@ -107,6 +107,9 @@ export default function ClarityApp() {
   const [rememberMe, setRememberMe] = useState(false);
   const [listening, setListening] = useState(false);
   const [showVoiceReward, setShowVoiceReward] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [isListeningVoice, setIsListeningVoice] = useState(false);
+  const [isSpeaking, setIsSpeaking] = useState(false);
   const bottomRef = useRef(null);
   const inputRef = useRef(null);
   const recognitionRef = useRef(null);
@@ -573,6 +576,35 @@ export default function ClarityApp() {
         )}
         <div ref={bottomRef}/>
       </div>
+      {voiceMode && (
+        <div style={{position:"fixed",top:0,left:0,right:0,bottom:0,background:"#060810",zIndex:200,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:28}}>
+          <style>{`
+            @keyframes vp1{0%,100%{transform:scale(1);opacity:0.15}50%{transform:scale(1.15);opacity:0.35}}
+            @keyframes vp2{0%,100%{transform:scale(1);opacity:0.2}50%{transform:scale(1.1);opacity:0.45}}
+            @keyframes vp3{0%,100%{transform:scale(1)}50%{transform:scale(1.08)}}
+            @keyframes vspeak{0%,100%{transform:scale(1)}25%{transform:scale(1.1)}75%{transform:scale(0.93)}}
+          `}</style>
+          <div style={{position:"absolute",width:"100%",height:"100%",background:"radial-gradient(circle at 50% 45%,rgba(45,125,210,0.08) 0%,transparent 60%)",pointerEvents:"none"}}/>
+          <div style={{position:"relative",width:200,height:200,display:"flex",alignItems:"center",justifyContent:"center"}}>
+            <div style={{position:"absolute",width:200,height:200,borderRadius:"50%",border:"1px solid rgba(45,125,210,0.15)",animation:(isListeningVoice||isSpeaking)?"vp1 2s ease-in-out infinite":"none"}}/>
+            <div style={{position:"absolute",width:155,height:155,borderRadius:"50%",border:"1px solid rgba(45,125,210,0.2)",animation:(isListeningVoice||isSpeaking)?"vp2 1.5s ease-in-out infinite":"none"}}/>
+            <div style={{position:"absolute",width:110,height:110,borderRadius:"50%",background:"rgba(45,125,210,0.1)",animation:(isListeningVoice||isSpeaking)?"vp3 1.2s ease-in-out infinite":"none"}}/>
+            <div style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#2D7DD2,#38BDF8)",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 0 48px rgba(45,125,210,0.5)",fontSize:32,animation:isSpeaking?"vspeak 0.5s ease-in-out infinite":"none"}}>
+              {isListeningVoice?"👂":isSpeaking?"💬":"💙"}
+            </div>
+          </div>
+          <div style={{textAlign:"center"}}>
+            <div style={{fontSize:22,fontWeight:800,marginBottom:8}}>{isListeningVoice?"Je t'écoute...":isSpeaking?"Clarity parle...":"Mode vocal"}</div>
+            <div style={{fontSize:14,color:"rgba(255,255,255,0.4)"}}>{isListeningVoice?"Parle maintenant":isSpeaking?"...":"Appuie sur le micro"}</div>
+          </div>
+          {!isListeningVoice&&!isSpeaking&&(
+            <button onClick={startVoiceListen} style={{width:80,height:80,borderRadius:"50%",background:"linear-gradient(135deg,#2D7DD2,#38BDF8)",border:"none",cursor:"pointer",fontSize:32,boxShadow:"0 8px 40px rgba(45,125,210,0.5)"}}>🎤</button>
+          )}
+          <button onClick={()=>{setVoiceMode(false);setIsListeningVoice(false);setIsSpeaking(false);window.speechSynthesis?.cancel();}} style={{background:"rgba(255,255,255,0.06)",border:"1px solid rgba(255,255,255,0.1)",color:"rgba(255,255,255,0.45)",padding:"12px 28px",borderRadius:100,fontSize:14,cursor:"pointer"}}>
+            Fermer
+          </button>
+        </div>
+      )}
       <style>{`@keyframes bounce{0%,60%,100%{transform:translateY(0);opacity:0.4}30%{transform:translateY(-6px);opacity:1}}`}</style>
       <div style={{padding:"12px 16px 24px",background:"rgba(6,8,16,0.95)",borderTop:"1px solid rgba(255,255,255,0.07)"}}>
         <div style={{display:"flex",gap:10,alignItems:"flex-end",background:"#111827",border:`1px solid ${listening?"rgba(255,80,80,0.4)":"rgba(45,125,210,0.25)"}`,borderRadius:24,padding:"8px 8px 8px 16px"}}>
