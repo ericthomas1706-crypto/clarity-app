@@ -248,9 +248,15 @@ export default function ClarityApp() {
       const reply = data.content;
       setMessages([...newMessages, { role: "assistant", content: reply }]);
       // Play Ricky's voice if micro-victory detected
-      const victoryKeywords = ['bravo', 'félicitations', 'excellent', 'parfait', 'super', 'victoire', 'accompli', 'terminé', 'fini', 'complété', 'bien joué', 'fier'];
+      const victoryKeywords = ['bravo', 'félicitations', 'excellent', 'parfait', 'super', 'victoire', 'accompli', 'terminé', 'fini', 'complété', 'bien joué', 'fier', 'proud', 'congrat', 'amazing', 'great', 'fantastic', 'incroyable', 'génial'];
       const hasVictory = victoryKeywords.some(k => reply.toLowerCase().includes(k));
-      if (hasVictory) setTimeout(playRickyVoice, 1500);
+      if (hasVictory) {
+        setTimeout(() => {
+          const audio = new Audio('/clarity-voice.mp3');
+          audio.volume = 1.0;
+          audio.play().catch(e => console.log('Audio error:', e));
+        }, 1000);
+      }
       // Save both messages to DB
       if (userId) {
         await dbQuery("POST", "messages", { user_id: userId, role: "user", content: userMsg });
