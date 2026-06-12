@@ -154,6 +154,7 @@ export default function ClarityApp() {
               setMessages([{ role: "assistant", content: `Bon retour ${session.name} ! 💙 On continue sur "${session.project}" ?` }]);
             }
             setScreen("chat");
+            setShowDashboard(true);
           });
         }
       }
